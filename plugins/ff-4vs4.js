@@ -21,59 +21,27 @@ const reiniciarListas = (groupId) => {
     });
 };
 
-let handler = async (m, { conn, text, args }) => {
-    if (m?.message?.buttonsResponseMessage) return; // 👈 Corrección aquí
+let handler = async (m, { conn }) => {
+    if (m?.message?.buttonsResponseMessage) return; // Evitar duplicados
 
     const msgText = m.text;
     const groupId = m.chat;
-    let listas = getListasGrupo(groupId);
 
-    if (msgText.toLowerCase().startsWith('.4vs4')) {
-        const mensaje = msgText.substring(6).trim();
-        if (!mensaje) {
-            await conn.sendMessage(m.chat, { 
-                text: `🕓 𝗜𝗡𝗚𝗥𝗘𝗦𝗔 𝗨𝗡 𝗛𝗢𝗥𝗔𝗥𝗜𝗢.\n𝗘𝗷𝗲𝗺𝗽𝗹𝗼:\n.4vs4 4pm🇪🇨/3pm🇲🇽` 
-            });
-            return;
-        }
-        reiniciarListas(groupId);
-        listas = getListasGrupo(groupId);
-        mensajesGrupos.set(groupId, mensaje);
+    if (!msgText.toLowerCase().startsWith('.4vs4')) return;
 
-        await mostrarLista(conn, m.chat, listas, [], mensaje);
+    const mensaje = msgText.substring(6).trim();
+    if (!mensaje) {
+        await conn.sendMessage(m.chat, { 
+            text: `🕓 𝗜𝗡𝗚𝗥𝗘𝗦𝗔 𝗨𝗡 𝗛𝗢𝗥𝗔𝗥𝗜𝗢.\n𝗘𝗷𝗲𝗺𝗽𝗹𝗼:\n.4vs4 4pm🇪🇨/3pm🇲🇽` 
+        });
         return;
     }
 
-    if (msgText.toLowerCase() !== 'asistir' && msgText.toLowerCase() !== 'suplente') return;
-
-    const usuario = m.sender.split('@')[0];
-    const nombreUsuario = m.pushName || usuario;
-
-    let squadType;
-    let mentions = [];
-
-    if (msgText.toLowerCase() === 'asistir') {
-        squadType = 'squad1';
-    } else {
-        squadType = 'suplente';
-    }
-
-    Object.keys(listas).forEach(key => {
-        const index = listas[key].findIndex(p => p.includes(`@${nombreUsuario}`));
-        if (index !== -1) {
-            listas[key][index] = '➤';
-        }
-    });
-
-    const libre = listas[squadType].findIndex(p => p === '➤');
-    if (libre !== -1) {
-        listas[squadType][libre] = `@${nombreUsuario}`;
-        mentions.push(m.sender);
-    }
-
-    const mensajeGuardado = mensajesGrupos.get(groupId);
-    await mostrarLista(conn, m.chat, listas, mentions, mensajeGuardado);
-}
+    reiniciarListas(groupId);
+    let listas = getListasGrupo(groupId);
+    mensajesGrupos.set(groupId, mensaje);
+    await mostrarLista(conn, m.chat, listas, [], mensaje);
+};
 
 async function mostrarLista(conn, chat, listas, mentions = [], mensajeUsuario = '') {
     const texto = `🕓 𝗛𝗢𝗥𝗔: ${mensajeUsuario ? `*${mensajeUsuario}*\n` : ''} 📑 𝗥𝗘𝗚𝗟𝗔𝗦: 𝗖𝗟𝗞
@@ -145,6 +113,7 @@ export async function after(m, { conn }) {
         const nombreUsuario = m.pushName || numero;
         const tag = m.sender;
 
+        // Limpiar participación anterior
         Object.keys(listas).forEach(key => {
             const index = listas[key].findIndex(p => p.includes(`@${nombreUsuario}`));
             if (index !== -1) {
@@ -176,8 +145,7 @@ export async function after(m, { conn }) {
     }
 }
 
-handler.customPrefix = /^(asistir|suplente|\.4vs4.*)$/i
-handler.command = new RegExp
-handler.group = true
+handler.command = /^\.4vs4/i;
+handler.group = true;
 
-export default handler
+export default handler;
