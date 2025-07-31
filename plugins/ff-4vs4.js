@@ -1,53 +1,92 @@
 import pkg from '@whiskeysockets/baileys';
-const { generateWAMessageFromContent, proto } = pkg;
+const { proto } = pkg;
 
 let listasGrupos = new Map();
 let mensajesGrupos = new Map();
 
 const getListasGrupo = (groupId) => {
-    if (!listasGrupos.has(groupId)) {
-        listasGrupos.set(groupId, {
-            squad1: ['➤', '➤', '➤', '➤'],
-            suplente: ['➤', '➤', '➤', '➤']
-        });
-    }
-    return listasGrupos.get(groupId);
+  if (!listasGrupos.has(groupId)) {
+    listasGrupos.set(groupId, {
+      squad1: ['➤', '➤', '➤', '➤'],
+      suplente: ['➤', '➤', '➤', '➤']
+    });
+  }
+  return listasGrupos.get(groupId);
 };
 
 const reiniciarListas = (groupId) => {
-    listasGrupos.set(groupId, {
-        squad1: ['➤', '➤', '➤', '➤'],
-        suplente: ['➤', '➤', '➤', '➤']
-    });
+  listasGrupos.set(groupId, {
+    squad1: ['➤', '➤', '➤', '➤'],
+    suplente: ['➤', '➤', '➤', '➤']
+  });
 };
 
-let handler = async (m, { conn }) => {
-    if (m?.message?.buttonsResponseMessage) return; // Evitar duplicados
+let processedMessages = new Set();
 
-    const msgText = m.text;
-    const groupId = m.chat;
+const handler = async (m, { conn }) => {
+  const groupId = m.chat;
 
-    if (!msgText.toLowerCase().startsWith('.4vs4')) return;
+  if (m.message?.buttonsResponseMessage) {
+    // Procesar respuesta a botón
+    if (processedMessages.has(m.key.id)) return; // evitar duplicados
+    processedMessages.add(m.key.id);
 
-    const mensaje = msgText.substring(6).trim();
-    if (!mensaje) {
-        await conn.sendMessage(m.chat, { 
-            text: `🕓 𝗜𝗡𝗚𝗥𝗘𝗦𝗔 𝗨𝗡 𝗛𝗢𝗥𝗔𝗥𝗜𝗢.\n𝗘𝗷𝗲𝗺𝗽𝗹𝗼:\n.4vs4 4pm🇪🇨/3pm🇲🇽` 
-        });
-        return;
+    const id = m.message.buttonsResponseMessage.selectedButtonId;
+    let listas = getListasGrupo(groupId);
+    const numero = m.sender.split('@')[0];
+    const nombreUsuario = m.pushName || numero;
+    const tag = m.sender;
+
+    // Limpiar participaciones anteriores
+    ['squad1', 'suplente'].forEach(key => {
+      const index = listas[key].findIndex(p => p.includes(`@${nombreUsuario}`));
+      if (index !== -1) listas[key][index] = '➤';
+    });
+
+    const squadType = id === 'asistir' ? 'squad1' : 'suplente';
+    const libre = listas[squadType].findIndex(p => p === '➤');
+
+    if (libre !== -1) {
+      listas[squadType][libre] = `@${nombreUsuario}`;
+      await conn.sendMessage(groupId, {
+        text: `✅ @${nombreUsuario} agregado a ${id === 'asistir' ? 'Asistencia' : 'Suplente'}`,
+        mentions: [tag]
+      });
+    } else {
+      await conn.sendMessage(groupId, {
+        text: `⚠️ ${id === 'asistir' ? 'Asistencia' : 'Suplente'} está llena`,
+        mentions: [tag]
+      });
     }
 
-    reiniciarListas(groupId);
-    let listas = getListasGrupo(groupId);
-    mensajesGrupos.set(groupId, mensaje);
-    await mostrarLista(conn, m.chat, listas, [], mensaje);
+    const mensajeGuardado = mensajesGrupos.get(groupId) || '';
+    await mostrarLista(conn, groupId, listas, [tag], mensajeGuardado);
+    return;
+  }
+
+  // Procesar comando .4vs4
+  if (!m.text?.toLowerCase().startsWith('.4vs4')) return;
+
+  const mensaje = m.text.substring(6).trim();
+  if (!mensaje) {
+    await conn.sendMessage(groupId, {
+      text: `🕓 𝗜𝗡𝗚𝗥𝗘𝗦𝗔 𝗨𝗡 𝗛𝗢𝗥𝗔𝗥𝗜𝗢.\nEjemplo:\n.4vs4 4pm🇪🇨/3pm🇲🇽`
+    });
+    return;
+  }
+
+  reiniciarListas(groupId);
+  let listas = getListasGrupo(groupId);
+  mensajesGrupos.set(groupId, mensaje);
+  await mostrarLista(conn, groupId, listas, [], mensaje);
 };
 
 async function mostrarLista(conn, chat, listas, mentions = [], mensajeUsuario = '') {
-    const texto = `🕓 𝗛𝗢𝗥𝗔: ${mensajeUsuario ? `*${mensajeUsuario}*\n` : ''} 📑 𝗥𝗘𝗚𝗟𝗔𝗦: 𝗖𝗟𝗞
+  const texto = `🕓 𝗛𝗢𝗥𝗔: ${mensajeUsuario ? mensajeUsuario + '\n' : ''}
+📑 𝗥𝗘𝗚𝗟𝗔𝗦: 𝗖𝗟𝗜𝗖𝗞
 
 ╭──────⚔──────╮
-          4 𝗩𝗘𝗥𝗦𝗨𝗦 4
+4 𝗩𝗘𝗥𝗦𝗨𝗦 4
 ╰──────⚔──────╯
 ╭─────────────╮
 │ 𝗘𝗦𝗖𝗨𝗔𝗗𝗥𝗔
@@ -63,89 +102,24 @@ async function mostrarLista(conn, chat, listas, mentions = [], mensajeUsuario = 
 │🥷🏻 ${listas.suplente[2]}
 │🥷🏻 ${listas.suplente[3]}
 ╰─────────────╯
-©EliteBotGlobal 2023 `;
+©EliteBotGlobal 2023`;
 
-    const buttons = [
-        {
-            name: "quick_reply",
-            buttonParamsJson: JSON.stringify({
-                display_text: "Asistir",
-                id: "asistir"
-            })
-        },
-        {
-            name: "quick_reply",
-            buttonParamsJson: JSON.stringify({
-                display_text: "Suplente",
-                id: "suplente"
-            })
-        }
-    ];
+  const buttons = [
+    { buttonId: 'asistir', buttonText: { displayText: 'Asistir' }, type: 1 },
+    { buttonId: 'suplente', buttonText: { displayText: 'Suplente' }, type: 1 },
+  ];
 
-    const mensaje = generateWAMessageFromContent(chat, {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: {
-                    deviceListMetadata: {},
-                    mentionedJid: mentions
-                },
-                interactiveMessage: proto.Message.InteractiveMessage.create({
-                    body: { text: texto },
-                    footer: { text: "Selecciona una opción:" },
-                    nativeFlowMessage: { buttons }
-                })
-            }
-        }
-    }, {});
+  const buttonMessage = {
+    text: texto,
+    footer: 'Selecciona una opción:',
+    buttons: buttons,
+    headerType: 1
+  };
 
-    await conn.relayMessage(chat, mensaje.message, { messageId: mensaje.key.id });
+  await conn.sendMessage(chat, buttonMessage, { mentions });
 }
 
-export async function after(m, { conn }) {
-    try {
-        const button = m?.message?.buttonsResponseMessage;
-        if (!button) return;
-
-        const id = button.selectedButtonId;
-        const groupId = m.chat;
-        let listas = getListasGrupo(groupId);
-        const numero = m.sender.split('@')[0];
-        const nombreUsuario = m.pushName || numero;
-        const tag = m.sender;
-
-        // Limpiar participación anterior
-        Object.keys(listas).forEach(key => {
-            const index = listas[key].findIndex(p => p.includes(`@${nombreUsuario}`));
-            if (index !== -1) {
-                listas[key][index] = '➤';
-            }
-        });
-
-        const squadType = id === 'asistir' ? 'squad1' : 'suplente';
-        const libre = listas[squadType].findIndex(p => p === '➤');
-
-        if (libre !== -1) {
-            listas[squadType][libre] = `@${nombreUsuario}`;
-            await conn.sendMessage(m.chat, {
-                text: `✅ @${nombreUsuario} agregado a ${id === 'asistir' ? 'Asistencia' : 'Suplente'}`,
-                mentions: [tag]
-            });
-        } else {
-            await conn.sendMessage(m.chat, {
-                text: `⚠️ ${id === 'asistir' ? 'Asistencia' : 'Suplente'} está llena`,
-                mentions: [tag]
-            });
-        }
-
-        const mensajeGuardado = mensajesGrupos.get(groupId);
-        await mostrarLista(conn, m.chat, listas, [tag], mensajeGuardado);
-    } catch (error) {
-        console.error('Error en after:', error);
-        await conn.sendMessage(m.chat, { text: '❌ Error al procesar tu selección' });
-    }
-}
-
-handler.command = /^4vs4$/i
+handler.command = /^4vs4$/i;
 handler.group = true;
 
 export default handler;
