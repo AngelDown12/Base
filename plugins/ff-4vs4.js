@@ -1,83 +1,204 @@
-const handler = async (m, { conn, args }) => {
-    // Verificar si se proporcionaron los argumentos necesarios
-    if (args.length < 2) {
-        conn.reply(m.chat, '𝘋𝘦𝘣𝘦𝘴 𝘱𝘳𝘰𝘱𝘰𝘳𝘤𝘪𝘰𝘯𝘢𝘳 𝘭𝘢 𝘩𝘰𝘳𝘢 (𝘏𝘏:𝘔𝘔) 𝘺 𝘦𝘭 𝘱𝘢𝘪́𝘴 (𝘔𝘟, 𝘊𝘖, 𝘊𝘓, 𝘈𝘙).', m);
-        return;
+import pkg from '@whiskeysockets/baileys';
+const { generateWAMessageFromContent, proto } = pkg;
+
+// Estado global de las listas por grupo
+let listasGrupos = new Map();
+let mensajesGrupos = new Map();
+
+// Función para obtener o crear las listas de un grupo
+const getListasGrupo = (groupId) => {
+    if (!listasGrupos.has(groupId)) {
+        listasGrupos.set(groupId, {
+            squad1: ['➤', '➤', '➤', '➤'],
+            suplente: ['➤', '➤', '➤', '➤']
+        });
     }
-
-    // Validar el formato de la hora
-    const horaRegex = /^([01]\d|2[0-3]):?([0-5]\d)$/;
-    if (!horaRegex.test(args[0])) {
-        conn.reply(m.chat, '𝘍𝘰𝘳𝘮𝘢𝘵𝘰 𝘥𝘦 𝘩𝘰𝘳𝘢 𝘪𝘯𝘤𝘰𝘳𝘳𝘦𝘤𝘵𝘰. 𝘋𝘦𝘣𝘦 𝘴𝘦𝘳 𝘏𝘏:𝘔𝘔 𝘦𝘯 𝘧𝘰𝘳𝘮𝘢𝘵𝘰 𝘥𝘦 24 𝘩𝘰𝘳𝘢𝘴.', m);
-        return;
-    }
-
-    const horaUsuario = args[0]; // Hora proporcionada por el usuario
-    const pais = args[1].toUpperCase(); // País proporcionado por el usuario
-
-    // Definir la diferencia horaria de cada país con respecto a México
-    const diferenciasHorarias = {
-        MX: 0, // México tiene la misma hora
-        CO: 1, // Colombia tiene una hora más
-        CL: 2, // Chile tiene dos horas más
-        AR: 3  // Argentina tiene tres horas más
-    };
-
-    if (!(pais in diferenciasHorarias)) {
-        conn.reply(m.chat, 'País no válido. Usa MX para México, CO para Colombia, CL para Chile o AR para Argentina.', m);
-        return;
-    }
-
-    // Obtener la diferencia horaria del país seleccionado
-    const diferenciaHoraria = diferenciasHorarias[pais];
-
-    // Calcular las cuatro horas consecutivas en cada país según la hora proporcionada y la diferencia horaria
-    const hora = parseInt(horaUsuario.split(':')[0], 10);
-    const minutos = parseInt(horaUsuario.split(':')[1], 10);
-
-    const horasEnPais = [];
-    for (let i = 0; i < 4; i++) {
-        const horaActual = new Date();
-        horaActual.setHours(hora + i);
-        horaActual.setMinutes(minutos);
-        horaActual.setSeconds(0);
-        horaActual.setMilliseconds(0);
-
-        const horaEnPais = new Date(horaActual.getTime() - (3600000 * diferenciaHoraria)); // Restar la diferencia horaria
-        horasEnPais.push(horaEnPais);
-    }
-
-    // Formatear las horas según el formato de 24 horas y obtener solo la hora y minutos
-    const formatTime = (date) => date.toLocaleTimeString('es', { hour12: false, hour: '2-digit', minute: '2-digit' });
-
-    const horaActual = formatTime(new Date()); // Obtener la hora actual sin modificación
-
-    const message = `
-*4 𝐕𝐄𝐑𝐒𝐔𝐒 4*
-
-🇲🇽 𝐌𝐄𝐗𝐈𝐂𝐎 : ${formatTime(horasEnPais[0])}
-🇨🇴 𝐂𝐎𝐋𝐎𝐌𝐁𝐈𝐀 : ${formatTime(horasEnPais[1])}
-🇨🇱 𝐂𝐇𝐈𝐋𝐄 : ${formatTime(horasEnPais[2])}
-🇦🇷 𝐀𝐑𝐆𝐄𝐍𝐓𝐈𝐍𝐀 : ${formatTime(horasEnPais[3])}
-
-𝐇𝐎𝐑𝐀 𝐀𝐂𝐓𝐔𝐀𝐋 𝐄𝐍 𝐌𝐄𝐗𝐈𝐂𝐎🇲🇽 : ${horaActual}
-
-𝗘𝗦𝗖𝗨𝗔𝗗𝗥𝗔
-
-👑 ┇ 
-🥷🏻 ┇  
-🥷🏻 ┇ 
-🥷🏻 ┇ 
-
-
-ㅤʚ 𝐒𝐔𝐏𝐋𝐄𝐍𝐓𝐄:
-🥷🏻 ┇ 
-🥷🏻 ┇
-`.trim();
-    
-    conn.sendMessage(m.chat, { text: message }, { quoted: m });
+    return listasGrupos.get(groupId);
 };
-handler.help = ['4vs4']
-handler.tags = ['freefire']
-handler.command = /^(4vs4|vs4)$/i;
-export default handler;
+
+// Función para reiniciar las listas de un grupo específico
+const reiniciarListas = (groupId) => {
+    listasGrupos.set(groupId, {
+        squad1: ['➤', '➤', '➤', '➤'],
+        suplente: ['➤', '➤', '➤', '➤']
+    });
+};
+
+let handler = async (m, { conn, text, args }) => {
+    const msgText = m.text;
+    const groupId = m.chat;
+    let listas = getListasGrupo(groupId);
+
+    // Manejar el comando .4vs4
+    if (msgText.toLowerCase().startsWith('.4vs4')) {
+        const mensaje = msgText.substring(6).trim(); // Remover '.4vs4' del mensaje
+        if (!mensaje) {
+            await conn.sendMessage(m.chat, { 
+                text: `🕓 𝗜𝗡𝗚𝗥𝗘𝗦𝗔 𝗨𝗡 𝗛𝗢𝗥𝗔𝗥𝗜𝗢.\n𝗘𝗷𝗲𝗺𝗽𝗹𝗼:\n.4vs4 4pm🇪🇨/3pm🇲🇽` 
+            });
+            return;
+        }
+        reiniciarListas(groupId);
+        listas = getListasGrupo(groupId);
+        mensajesGrupos.set(groupId, mensaje);
+
+        await mostrarLista(conn, m.chat, listas, [], mensaje);
+        return;
+    }
+
+    if (msgText.toLowerCase() !== 'asistir' && msgText.toLowerCase() !== 'suplente') return;
+
+    const usuario = m.sender.split('@')[0];
+    const nombreUsuario = m.pushName || usuario;
+
+    let squadType;
+    let mentions = [];
+
+    if (msgText.toLowerCase() === 'asistir') {
+        squadType = 'squad1';
+    } else {
+        squadType = 'suplente';
+    }
+
+    // Borrar al usuario de otras escuadras
+    Object.keys(listas).forEach(key => {
+        const index = listas[key].findIndex(p => p.includes(`@${nombreUsuario}`));
+        if (index !== -1) {
+            listas[key][index] = '➤';
+        }
+    });
+
+    const libre = listas[squadType].findIndex(p => p === '➤');
+    if (libre !== -1) {
+        listas[squadType][libre] = `@${nombreUsuario}`;
+        mentions.push(m.sender);
+    }
+
+    Object.values(listas).forEach(squad => {
+        squad.forEach(member => {
+            if (member !== '➤') {
+                const userName = member.slice(1);
+                const userJid = Object.keys(m.message.extendedTextMessage?.contextInfo?.mentionedJid || {}).find(jid => 
+                    jid.split('@')[0] === userName || 
+                    conn.getName(jid) === userName
+                );
+                if (userJid) mentions.push(userJid);
+            }
+        });
+    });
+
+    const mensajeGuardado = mensajesGrupos.get(groupId);
+    if (mensajeGuardado) {
+        await mostrarLista(conn, m.chat, listas, mentions, mensajeGuardado);
+    } else {
+        await mostrarLista(conn, m.chat, listas, mentions);
+    }
+    return;
+}
+
+async function mostrarLista(conn, chat, listas, mentions = [], mensajeUsuario = '') {
+    const texto = `🕓 𝗛𝗢𝗥𝗔: ${mensajeUsuario ? `*${mensajeUsuario}*\n` : ''} 📑 𝗥𝗘𝗚𝗟𝗔𝗦: 𝗖𝗟𝗞
+    
+╭──────⚔──────╮
+          4 𝗩𝗘𝗥𝗦𝗨𝗦 4
+╰──────⚔──────╯
+╭─────────────╮
+│ 𝗘𝗦𝗖𝗨𝗔𝗗𝗥𝗔
+│👑 ${listas.squad1[0]}
+│🥷🏻 ${listas.squad1[1]}
+│🥷🏻 ${listas.squad1[2]}
+│🥷🏻 ${listas.squad1[3]}
+╰─────────────╯
+╭─────────────╮
+│ 𝗦𝗨𝗣𝗟𝗘𝗡𝗧𝗘𝗦
+│🥷🏻 ${listas.suplente[0]}
+│🥷🏻 ${listas.suplente[1]}
+│🥷🏻 ${listas.suplente[2]}
+│🥷🏻 ${listas.suplente[3]}
+╰─────────────╯
+©EliteBotGlobal 2023 `;
+
+    const buttons = [
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "Asistir",
+                id: "asistir"
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "Suplente",
+                id: "suplente"
+            })
+        }
+    ];
+
+    const mensaje = generateWAMessageFromContent(chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    mentionedJid: mentions
+                },
+                interactiveMessage: proto.Message.InteractiveMessage.create({
+                    body: { text: texto },
+                    footer: { text: "Selecciona una opción:" },
+                    nativeFlowMessage: { buttons }
+                })
+            }
+        }
+    }, {});
+
+    await conn.relayMessage(chat, mensaje.message, { messageId: mensaje.key.id });
+}
+
+export async function after(m, { conn }) {
+    try {
+        const button = m?.message?.buttonsResponseMessage;
+        if (!button) return;
+
+        const id = button.selectedButtonId;
+        const groupId = m.chat;
+        let listas = getListasGrupo(groupId);
+        const numero = m.sender.split('@')[0];
+        const nombreUsuario = m.pushName || numero;
+        const tag = m.sender;
+
+        Object.keys(listas).forEach(key => {
+            const index = listas[key].findIndex(p => p.includes(`@${nombreUsuario}`));
+            if (index !== -1) {
+                listas[key][index] = '➤';
+            }
+        });
+
+        const squadType = id === 'asistir' ? 'squad1' : 'suplente';
+        const libre = listas[squadType].findIndex(p => p === '➤');
+
+        if (libre !== -1) {
+            listas[squadType][libre] = `@${nombreUsuario}`;
+            await conn.sendMessage(m.chat, {
+                text: `✅ @${nombreUsuario} agregado a ${id === 'asistir' ? 'Asistencia' : 'Suplente'}`,
+                mentions: [tag]
+            });
+        } else {
+            await conn.sendMessage(m.chat, {
+                text: `⚠️ ${id === 'asistir' ? 'Asistencia' : 'Suplente'} está llena`,
+                mentions: [tag]
+            });
+        }
+
+        const mensajeGuardado = mensajesGrupos.get(groupId);
+        await mostrarLista(conn, m.chat, listas, [tag], mensajeGuardado);
+    } catch (error) {
+        console.error('Error en after:', error);
+        await conn.sendMessage(m.chat, { text: '❌ Error al procesar tu selección' });
+    }
+}
+
+handler.customPrefix = /^(asistir|suplente|\.4vs4.*)$/i
+handler.command = new RegExp
+handler.group = true
+
+export default handler
