@@ -197,7 +197,7 @@ export async function after(m, { conn }) {
     }
 }
 
-handler.customPrefix = /^(|suplente|\.4vs4.*)$/i
+handler.customPrefix = /^(asistir|suplente|\.4vs4.*)$/i
 handler.command = new RegExp
 handler.group = true
 
