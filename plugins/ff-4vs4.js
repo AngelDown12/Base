@@ -1,11 +1,9 @@
 import pkg from '@whiskeysockets/baileys';
 const { generateWAMessageFromContent, proto } = pkg;
 
-// Estado global de las listas por grupo
 let listasGrupos = new Map();
 let mensajesGrupos = new Map();
 
-// Función para obtener o crear las listas de un grupo
 const getListasGrupo = (groupId) => {
     if (!listasGrupos.has(groupId)) {
         listasGrupos.set(groupId, {
@@ -16,7 +14,6 @@ const getListasGrupo = (groupId) => {
     return listasGrupos.get(groupId);
 };
 
-// Función para reiniciar las listas de un grupo específico
 const reiniciarListas = (groupId) => {
     listasGrupos.set(groupId, {
         squad1: ['➤', '➤', '➤', '➤'],
@@ -25,13 +22,14 @@ const reiniciarListas = (groupId) => {
 };
 
 let handler = async (m, { conn, text, args }) => {
+    if (m?.message?.buttonsResponseMessage) return; // 👈 Corrección aquí
+
     const msgText = m.text;
     const groupId = m.chat;
     let listas = getListasGrupo(groupId);
 
-    // Manejar el comando .4vs4
     if (msgText.toLowerCase().startsWith('.4vs4')) {
-        const mensaje = msgText.substring(6).trim(); // Remover '.4vs4' del mensaje
+        const mensaje = msgText.substring(6).trim();
         if (!mensaje) {
             await conn.sendMessage(m.chat, { 
                 text: `🕓 𝗜𝗡𝗚𝗥𝗘𝗦𝗔 𝗨𝗡 𝗛𝗢𝗥𝗔𝗥𝗜𝗢.\n𝗘𝗷𝗲𝗺𝗽𝗹𝗼:\n.4vs4 4pm🇪🇨/3pm🇲🇽` 
@@ -60,7 +58,6 @@ let handler = async (m, { conn, text, args }) => {
         squadType = 'suplente';
     }
 
-    // Borrar al usuario de otras escuadras
     Object.keys(listas).forEach(key => {
         const index = listas[key].findIndex(p => p.includes(`@${nombreUsuario}`));
         if (index !== -1) {
@@ -74,31 +71,13 @@ let handler = async (m, { conn, text, args }) => {
         mentions.push(m.sender);
     }
 
-    Object.values(listas).forEach(squad => {
-        squad.forEach(member => {
-            if (member !== '➤') {
-                const userName = member.slice(1);
-                const userJid = Object.keys(m.message.extendedTextMessage?.contextInfo?.mentionedJid || {}).find(jid => 
-                    jid.split('@')[0] === userName || 
-                    conn.getName(jid) === userName
-                );
-                if (userJid) mentions.push(userJid);
-            }
-        });
-    });
-
     const mensajeGuardado = mensajesGrupos.get(groupId);
-    if (mensajeGuardado) {
-        await mostrarLista(conn, m.chat, listas, mentions, mensajeGuardado);
-    } else {
-        await mostrarLista(conn, m.chat, listas, mentions);
-    }
-    return;
+    await mostrarLista(conn, m.chat, listas, mentions, mensajeGuardado);
 }
 
 async function mostrarLista(conn, chat, listas, mentions = [], mensajeUsuario = '') {
     const texto = `🕓 𝗛𝗢𝗥𝗔: ${mensajeUsuario ? `*${mensajeUsuario}*\n` : ''} 📑 𝗥𝗘𝗚𝗟𝗔𝗦: 𝗖𝗟𝗞
-    
+
 ╭──────⚔──────╮
           4 𝗩𝗘𝗥𝗦𝗨𝗦 4
 ╰──────⚔──────╯
