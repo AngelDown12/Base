@@ -145,7 +145,7 @@ export async function after(m, { conn }) {
     }
 }
 
-handler.command = /^\.4vs4/i;
+handler.command = /^4vs4$/i
 handler.group = true;
 
 export default handler;
